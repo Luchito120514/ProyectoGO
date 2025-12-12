@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Biblioteca Simple con Roles</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+    h1 { text-align: center; color: #2c3e50; }
+    section { background: #fff; padding: 15px; margin: 15px auto; border-radius: 8px; max-width: 800px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    h2, h3 { margin-top: 0; }
+    input, select, button { padding: 8px; margin: 5px 0; width: 100%; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+    button { background: #3498db; color: #fff; cursor: pointer; }
+    button:hover { background: #2980b9; }
+    pre { background: #ecf0f1; padding: 10px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+    .hidden { display: none; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  </style>
+</head>
+<body>
+  <h1>📚 Biblioteca LM</h1>
+
+  <!-- Inicio Sesion -->
+  <section>
+    <h2>Login</h2>
+    <div class="row">
+      <input id="nombre" placeholder="Nombre (ej: Luis)" />
+      <input id="email" placeholder="Email (ej: luis@gmail.com)" />
+    </div>
+    <button onclick="login()">Entrar</button>
+    <p id="loginMsg"></p>
+  </section>
+
+  <!-- Ver datos -->
+  <section>
+    <h2>Ver datos</h2>
+    <div class="row-3">
+      <button onclick="verLibros()">Ver libros</button>
+      <button onclick="verUsuarios()">Ver usuarios</button>
+      <button onclick="verPrestamos()">Ver préstamos</button>
+    </div>
+    <div id="resultado"></div>
+  </section>
+
+  <!-- Admin -->
+  <section id="adminSection" class="hidden">
+    <h2>Panel Admin</h2>
+
+    <h3>Agregar libro</h3>
+    <div class="row">
+      <input id="isbn" placeholder="ISBN" />
+      <input id="titulo" placeholder="Título" />
+      <input id="autor" placeholder="Autor" />
+      <input id="categoria" placeholder="Categoría" />
+    </div>
+    <button onclick="agregarLibro()">Guardar libro</button>
+
+    <h3>Agregar usuario</h3>
+    <div class="row">
+      <input id="nombreUsuario" placeholder="Nombre" />
+      <input id="emailUsuario" placeholder="Email" />
+      <select id="rolUsuario">
+        <option value="usuario">Usuario</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <button onclick="agregarUsuario()">Guardar usuario</button>
+
+    <h3>Eliminar usuario</h3>
+    <div class="row">
+      <input id="deleteUserId" placeholder="ID de usuario" />
+    </div>
+    <button onclick="eliminarUsuario()">Eliminar usuario</button>
+
+    <h3>Reset libros</h3>
+    <button onclick="resetLibros()">Resetear todos los libros</button>
+  </section>
+
+  <!-- Préstamos -->
+  <section>
+    <h2>Préstamos</h2>
+    <h3>Registrar préstamo</h3>
+    <div class="row">
+      <input id="isbnPrestamo" placeholder="ISBN del libro" />
+      <input id="usuarioPrestamo" placeholder="ID del usuario" />
+    </div>
+    <button onclick="registrarPrestamo()">Registrar</button>
+
+    <h3>Devolver préstamo</h3>
+    <div class="row">
+      <input id="isbnDevolver" placeholder="ISBN del libro" />
+    </div>
+    <button onclick="devolverPrestamo()">Devolver</button>
+  </section>
+
+  <script>
+    const API_URL = "http://localhost:8080";
+
+    function setAdminUI(rol) {
+      document.getElementById("adminSection").classList.toggle("hidden", rol !== "admin");
+    }
+
+    async function login() {
+      const nombre = document.getElementById("nombre").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const msg = document.getElementById("loginMsg");
+      msg.textContent = "";
+      try {
+        const res = await fetch(`${API_URL}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre, email }),
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          msg.textContent = text || `Error ${res.status}`;
+          return;
+        }
+        const data = JSON.parse(text);
+        msg.textContent = `Sesión iniciada como ${data.usuario} (${data.rol})`;
+        setAdminUI(data.rol);
+      } catch {
+        msg.textContent = "Error de conexión";
+      }
+    }
+
+    async function verLibros() {
+      try {
+        const res = await fetch(`${API_URL}/libros`);
+        const data = await res.json();
+        document.getElementById("resultado").innerHTML = "<pre>" + JSON.stringify(data, null, 2) + "</pre>";
+      } catch {
+        document.getElementById("resultado").innerHTML = "<pre>Error</pre>";
+      }
+    }
+
+    async function verUsuarios() {
+      try {
+        const res = await fetch(`${API_URL}/usuarios`);
+        const data = await res.json();
+        document.getElementById("resultado").innerHTML = "<pre>" + JSON.stringify(data, null, 2) + "</pre>";
+      } catch {
+        document.getElementById("resultado").innerHTML = "<pre>Error</pre>";
+      }
+    }
+
+    async function verPrestamos() {
+      try {
+        const res = await fetch(`${API_URL}/prestamos`);
+        const data = await res.json();
+        document.getElementById("resultado").innerHTML = "<pre>" + JSON.stringify(data, null, 2) + "</pre>";
+      } catch {
+        document.getElementById("resultado").innerHTML = "<pre>Error</pre>";
+      }
+    }
+
+    async function agregarLibro() {
+      const isbn = document.getElementById("isbn").value.trim();
+      const titulo = document.getElementById("titulo").value.trim();
+      const autor = document.getElementById("autor").value.trim();
+      const categoria = document.getElementById("categoria").value.trim();
+      if (!isbn || !titulo) {
+        alert("ISBN y Título son obligatorios");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/libros`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isbn, titulo, autor, categoria }),
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          alert(text || `Error ${res.status}`);
+          return;
+        }
+        const data = JSON.parse(text);
+        alert(`Libro agregado: ${data.titulo}`);
+        verLibros();
+      } catch {
+        alert("Error de conexión");
+      }
+    }
+
+    async function agregarUsuario() {
+      const nombre = document.getElementById("nombreUsuario").value.trim();
+      const email = document.getElementById("emailUsuario").value.trim();
+      const rol = document.getElementById("rolUsuario").value;
+      if (!nombre || !email) {
+        alert("Nombre y Email son obligatorios");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/usuarios`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre, email, rol }),
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          alert(text || `Error ${res.status}`);
+          return;
+        }
+        const data = JSON.parse(text);
+        alert(`Usuario agregado: ${data.nombre}`);
+        verUsuarios();
+      } catch {
+        alert("Error de conexión");
+      }
+    }
+
+    async function eliminarUsuario() {
+      const id = document.getElementById("deleteUserId").value.trim();
+      if (!id) {
+        alert("Debes ingresar un ID");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/usuarios?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          alert(text || `Error ${res.status}`);
+          return;
+        }
+        let mensaje = "Usuario eliminado";
+        try {
+          const data = JSON.parse(text);
+          mensaje = data.mensaje || mensaje;
+        } catch {}
+        alert(mensaje);
+        verUsuarios();
+      } catch {
+        alert("Error de conexión");
+      }
+    }
+
+    async function resetLibros() {
+      if (!confirm("¿Seguro que quieres borrar TODOS los libros?")) return;
+      try {
+        const res = await fetch(`${API_URL}/libros/reset`, { method: "DELETE" });
+        const text = await res.text();
+        if (!res.ok) {
+          alert(text || `Error ${res.status}`);
+          return;
+        }
+        let mensaje = "Libros reseteados";
+        try {
+          const data = JSON.parse(text);
+          mensaje = data.mensaje || mensaje;
+        } catch {}
+        alert(mensaje);
+        verLibros();
+      } catch {
+        alert("Error de conexión");
+      }
+    }
+
+    async function registrarPrestamo() {
+      const isbn = document.getElementById("isbnPrestamo").value.trim();
+      const usuario_id = parseInt(document.getElementById("usuarioPrestamo").value.trim(), 10);
+      if (!isbn || !usuario_id) {
+        alert("ISBN y Usuario ID son obligatorios");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/prestamos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isbn, usuario_id }),
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          alert(text || `Error ${res.status}`);
+          return;
+        }
+        const data = JSON.parse(text);
+        alert(`Préstamo registrado: ${data.isbn}`);
+        verPrestamos();
+        verLibros();
+      } catch {
+        alert("Error de conexión");
+      }
+    }
+
+    async function devolverPrestamo() {
+      const isbn = document.getElementById("isbnDevolver").value.trim();
+      if (!isbn) {
+        alert("Debes ingresar un ISBN");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/prestamos?isbn=${encodeURIComponent(isbn)}`, {
+          method: "PUT",
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          alert(text || `Error ${res.status}`);
+          return;
+        }
+        alert(`Préstamo devuelto: ${isbn}`);
+        verPrestamos();
+        verLibros();
+      } catch {
+        alert("Error de conexión");
+      }
+    }
+  </script>
+</body>
+</html>
